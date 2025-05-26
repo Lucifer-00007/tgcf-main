@@ -39,7 +39,6 @@ export class FormatPlugin implements ITgcfPlugin {
       // this would be handled by setting `parse_mode: undefined` in the sender.
       // For now, as per spec, just setting tm.text to itself.
       // This also implies that any pre-existing markdown in tm.text is considered plain text.
-      // To strip markdown: tm.text = tm.text.replace(/[*_`~]/g, ''); // Basic stripping
       // For now, adhering to "tm.text = tm.text;"
       console.log(`FormatPlugin: Style is PLAIN for message ID ${tm.originalMessage.message_id}. Text set to itself (implies no parse_mode or escaped).`);
       // No actual change to tm.text is needed here if it's already plain.

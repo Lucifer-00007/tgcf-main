@@ -39,11 +39,7 @@ export interface BotMessages {
   bot_help?: string;
 }
 
-export interface PluginConfig {
-  // Define structure based on Python PluginConfig if available
-  // For now, keeping it simple
-  [key: string]: any;
-}
+// Unused PluginConfig interface removed. PluginsConfig from ./plugin_models is used.
 
 import { PluginsConfig } from './plugin_models'; // Import PluginsConfig
 
@@ -140,9 +136,10 @@ export function loadConfigFromFile(filePath: string): Config {
     console.error(`Error loading or parsing config file at ${filePath}:`, error);
     console.warn('Using default configuration due to error.');
     return { ...DEFAULT_CONFIG };
-import { Bot } from 'grammy'; // Import Bot for resolveChatId
+  } // End of loadConfigFromFile
+} // End of loadConfigFromFile, ensure this curly brace is correct. It seems like the function was interrupted.
 
-// ... (other imports and code remain the same)
+import { Bot } from 'grammy'; // Import Bot for resolveChatId
 
 // Function to resolve chat identifier (username, link, or ID) to a numerical chat ID
 export async function resolveChatId(bot: Bot, identifier: string | number): Promise<number | undefined> {
@@ -234,31 +231,41 @@ export async function readConfigFromDB(client: MongoClient, dbName: string, colN
     const mongoConfigDoc = await collection.findOne({ _id: 0 });
 
     if (mongoConfigDoc && mongoConfigDoc.config) {
-      // Ensure all parts of the config are present, merging with default if necessary
-      const loadedConfig = { ...DEFAULT_CONFIG, ...mongoConfigDoc.config } as Config;
       // Deep merge for nested objects like login, live, past, bot_messages, plugins
       const baseConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy
-      const loadedConfig = { ...baseConfig, ...mongoConfigDoc.config } as Config;
-      loadedConfig.login = { ...baseConfig.login, ...mongoConfigDoc.config.login };
-      loadedConfig.live = { ...baseConfig.live, ...mongoConfigDoc.config.live };
-      loadedConfig.past = { ...baseConfig.past, ...mongoConfigDoc.config.past };
-      loadedConfig.bot_messages = { ...baseConfig.bot_messages, ...mongoConfigDoc.config.bot_messages };
+      let loadedConfig = { ...baseConfig, ...mongoConfigDoc.config } as Config; // Use let for reassignment if needed or ensure this is the final
+      loadedConfig.login = { ...baseConfig.login, ...(mongoConfigDoc.config.login || {}) };
+      loadedConfig.live = { ...baseConfig.live, ...(mongoConfigDoc.config.live || {}) };
+      loadedConfig.past = { ...baseConfig.past, ...(mongoConfigDoc.config.past || {}) };
+      loadedConfig.bot_messages = { ...baseConfig.bot_messages, ...(mongoConfigDoc.config.bot_messages || {}) };
+      
       // For plugins, ensure deep merge of each individual plugin config
       loadedConfig.plugins = { ...baseConfig.plugins }; // Start with default plugin structure
       if (mongoConfigDoc.config.plugins) {
-        for (const key in mongoConfigDoc.config.plugins) {
-            if (loadedConfig.plugins.hasOwnProperty(key) && typeof mongoConfigDoc.config.plugins[key] === 'object') {
-                // @ts-ignore
-                loadedConfig.plugins[key] = { ...loadedConfig.plugins[key], ...mongoConfigDoc.config.plugins[key] };
+        for (const pluginKey in mongoConfigDoc.config.plugins) {
+          if (baseConfig.plugins.hasOwnProperty(pluginKey)) { // Check if pluginKey is a valid key in PluginsConfig
+            // @ts-ignore // We assume pluginKey is a valid key of PluginsConfig
+            if (typeof mongoConfigDoc.config.plugins[pluginKey] === 'object' && mongoConfigDoc.config.plugins[pluginKey] !== null) {
+              // @ts-ignore
+              loadedConfig.plugins[pluginKey] = { ...baseConfig.plugins[pluginKey], ...mongoConfigDoc.config.plugins[pluginKey] };
             } else {
-                 // @ts-ignore
-                loadedConfig.plugins[key] = mongoConfigDoc.config.plugins[key]; // For new plugins not in default
+              // If the loaded plugin config is not an object (e.g. just 'check: true'), assign it directly
+              // This might happen if config is malformed or a plugin has simpler config.
+              // @ts-ignore
+              loadedConfig.plugins[pluginKey] = mongoConfigDoc.config.plugins[pluginKey];
             }
+          } else {
+            // If the plugin key from DB doesn't exist in default config, it might be a custom/new plugin.
+            // For safety, only copy if it's a known structure or handle appropriately.
+            // For now, we'll assign it directly, assuming it's valid.
+            // @ts-ignore
+            loadedConfig.plugins[pluginKey] = mongoConfigDoc.config.plugins[pluginKey];
+          }
         }
       }
       return loadedConfig;
     }
-    console.warn(`Config not found in MongoDB (db: ${dbName}, collection: ${colName}, _id: 0).`);
+    console.warn(`Config not found in MongoDB (db: ${dbName}, collection: ${colName}, _id: 0). Returning null.`);
     return null;
   } catch (error) {
     console.error(`Error reading config from MongoDB (db: ${dbName}, collection: ${colName}):`, error);
@@ -368,26 +375,33 @@ export async function initializeConfig(): Promise<Config> {
    // Deep merge for nested objects that might be missed by simple spread
   if (loadedConfig) {
       const baseConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy for merging
-      currentConfig.login = { ...baseConfig.login, ...loadedConfig.login };
-      currentConfig.live = { ...baseConfig.live, ...loadedConfig.live };
-      currentConfig.past = { ...baseConfig.past, ...loadedConfig.past };
-      currentConfig.bot_messages = { ...baseConfig.bot_messages, ...loadedConfig.bot_messages };
+      currentConfig.login = { ...baseConfig.login, ...(loadedConfig.login || {}) };
+      currentConfig.live = { ...baseConfig.live, ...(loadedConfig.live || {}) };
+      currentConfig.past = { ...baseConfig.past, ...(loadedConfig.past || {}) };
+      currentConfig.bot_messages = { ...baseConfig.bot_messages, ...(loadedConfig.bot_messages || {}) };
+      
       // Deep merge for plugins
       currentConfig.plugins = { ...baseConfig.plugins };
       if (loadedConfig.plugins) {
-        for (const key in loadedConfig.plugins) {
-            if (currentConfig.plugins.hasOwnProperty(key) && typeof loadedConfig.plugins[key] === 'object') {
-                // @ts-ignore
-                currentConfig.plugins[key] = { ...currentConfig.plugins[key], ...loadedConfig.plugins[key] };
-            } else {
-                // @ts-ignore
-                currentConfig.plugins[key] = loadedConfig.plugins[key];
-            }
-        }
+          for (const pluginKey in loadedConfig.plugins) {
+              if (baseConfig.plugins.hasOwnProperty(pluginKey)) { // Check if pluginKey is a valid key in PluginsConfig
+                  // @ts-ignore
+                  if (typeof loadedConfig.plugins[pluginKey] === 'object' && loadedConfig.plugins[pluginKey] !== null) {
+                      // @ts-ignore
+                      currentConfig.plugins[pluginKey] = { ...baseConfig.plugins[pluginKey], ...loadedConfig.plugins[pluginKey] };
+                  } else {
+                      // @ts-ignore
+                      currentConfig.plugins[pluginKey] = loadedConfig.plugins[pluginKey];
+                  }
+              } else {
+                  // @ts-ignore
+                  currentConfig.plugins[pluginKey] = loadedConfig.plugins[pluginKey]; // New plugin not in default
+              }
+          }
       }
   }
 
-  console.log(`Configuration initialized. Type: ${currentConfigType}`);
+  console.log(`Configuration initialized. Type: ${currentConfigType}. Current config:`, JSON.stringify(currentConfig, null, 2));
   return currentConfig;
 }
 
@@ -414,14 +428,37 @@ export function getConfig(): Config {
 export async function updateConfig(newConfig: Config): Promise<void> {
   currentConfig = { ...currentConfig, ...newConfig }; // Merge to preserve existing keys not in newConfig
   // Deep merge for nested objects to prevent them from being overwritten by partial newConfig
-  if (newConfig.login) currentConfig.login = { ...currentConfig.login, ...newConfig.login };
-  if (newConfig.live) currentConfig.live = { ...currentConfig.live, ...newConfig.live };
-  if (newConfig.past) currentConfig.past = { ...currentConfig.past, ...newConfig.past };
-  if (newConfig.bot_messages) currentConfig.bot_messages = { ...currentConfig.bot_messages, ...newConfig.bot_messages };
-  if (newConfig.plugins) currentConfig.plugins = { ...currentConfig.plugins, ...newConfig.plugins };
-  if (newConfig.admins) currentConfig.admins = [...newConfig.admins]; // Replace arrays or merge as needed
-  if (newConfig.forwards) currentConfig.forwards = [...newConfig.forwards];
+  // Ensure currentConfig is updated correctly with potentially partial newConfig
+  const updatedConfig = { ...currentConfig, ...newConfig };
+  updatedConfig.login = { ...currentConfig.login, ...(newConfig.login || {}) };
+  updatedConfig.live = { ...currentConfig.live, ...(newConfig.live || {}) };
+  updatedConfig.past = { ...currentConfig.past, ...(newConfig.past || {}) };
+  updatedConfig.bot_messages = { ...currentConfig.bot_messages, ...(newConfig.bot_messages || {}) };
+  
+  updatedConfig.plugins = { ...currentConfig.plugins };
+  if (newConfig.plugins) {
+    for (const pluginKey in newConfig.plugins) {
+      if (currentConfig.plugins.hasOwnProperty(pluginKey)) {
+        // @ts-ignore
+        if (typeof newConfig.plugins[pluginKey] === 'object' && newConfig.plugins[pluginKey] !== null) {
+          // @ts-ignore
+          updatedConfig.plugins[pluginKey] = { ...currentConfig.plugins[pluginKey], ...newConfig.plugins[pluginKey] };
+        } else {
+          // @ts-ignore
+          updatedConfig.plugins[pluginKey] = newConfig.plugins[pluginKey];
+        }
+      } else {
+         // @ts-ignore
+        updatedConfig.plugins[pluginKey] = newConfig.plugins[pluginKey]; // New plugin
+      }
+    }
+  }
 
+  // For arrays, decide on merge strategy (overwrite is simpler)
+  updatedConfig.admins = newConfig.admins ? [...newConfig.admins] : [...currentConfig.admins];
+  updatedConfig.forwards = newConfig.forwards ? [...newConfig.forwards] : [...currentConfig.forwards];
+
+  currentConfig = updatedConfig; // Assign the fully merged config back to currentConfig
 
   if (currentConfigType === 'mongo') {
     const mongoConStr = process.env.MONGO_CON_STR;

@@ -75,9 +75,8 @@ export class ReplacePlugin implements ITgcfPlugin {
       // No text to process or no replacements defined
       if (this.replacements.length === 0 && this.config.check) { // Only log if check is true but no valid replacements compiled
         console.log(`ReplacePlugin: No valid replacements compiled for message ID ${tm.originalMessage.message_id}. No changes made.`);
-      } else if (!tm.text) {
-        // console.log(`ReplacePlugin: No text in message ID ${tm.originalMessage.message_id}. No changes made.`);
       }
+      // else if (!tm.text) { /* This case is covered by the initial !tm.text check */ }
       return tm;
     }
 
@@ -89,9 +88,8 @@ export class ReplacePlugin implements ITgcfPlugin {
     if (tm.text !== modifiedText) {
       console.log(`ReplacePlugin: Text replaced for message ID ${tm.originalMessage.message_id}. Original: "${tm.text}", New: "${modifiedText}"`);
       tm.text = modifiedText;
-    } else {
-      // console.log(`ReplacePlugin: No replacements made to text for message ID ${tm.originalMessage.message_id}.`);
     }
+    // else { /* No log needed if no replacement occurred */ }
     
     return tm;
   }

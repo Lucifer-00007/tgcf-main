@@ -1,14 +1,14 @@
 import { Bot, GrammyError, HttpError } from 'grammy';
-import { Message as TypegramMessage } from 'grammy/types'; // Use TypegramMessage
-import { getConfig, initializeConfig, loadFromTo, currentConfig, Forward } from './config';
+import { Message as TypegramMessage } from 'grammy/types';
+import { getConfig, initializeConfig, loadFromTo } from './config'; // Removed currentConfig, Forward
 import { sendMessage } from './telegram_utils';
-import { loadPlugins, applyPlugins as executeApplyPlugins } from './plugins/loader'; // Renamed to avoid conflict
-// import { saveLastMessageId, getLastMessageId } from './storage'; // Placeholder for storage
+import { loadPlugins, applyPlugins as executeApplyPlugins } from './plugins/loader';
+// Removed placeholder storage import comment
 
 // Helper function for delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Removed old placeholder applyPlugins
+// Removed comment about removed placeholder function
 
 export async function forwardJob() {
   console.log('Starting past mode job...');
@@ -56,64 +56,21 @@ export async function forwardJob() {
 
   for (const [sourceChatId, { destinations, forwardConfig }] of fromToMap) {
     console.log(`Processing source: ${sourceChatId} (Rule: "${forwardConfig.con_name || 'Unnamed'}")`);
-    // let currentOffsetId = await getLastMessageId(sourceChatId) || forwardConfig.offset || 0;
-    let currentOffsetId = forwardConfig.offset || 0; // Use offset from config, storage not implemented yet
+    // `currentOffsetId` is the last processed message_id for this source from previous runs (or 0 if new).
+    // We need to fetch messages with message_id > currentOffsetId.
+    // `forwardConfig.end` is an optional upper limit (message_id to stop before).
+    let currentOffsetId = forwardConfig.offset || 0; 
     const limit = 100; // Telegram API message limit per request
 
-    // Telethon's reverse=True fetches oldest messages first.
-    // grammY's getChatHistory `offset_id` fetches messages *older* than the given ID.
-    // If `offset_id` is 0, it fetches the most recent messages.
-    // To emulate `reverse=True` and Telethon's `offset_id` (which is like a "message_id to start after" when not reversed):
-    // If we want to fetch messages *after* a certain `offset_id` (Telethon's default behavior for `offset_id`),
-    // and process them chronologically (oldest first), we'd need a different strategy with getChatHistory.
-    //
-    // However, the Python code's `offset` seems to be a message ID to *start after*.
-    // And `end` is a message ID to *stop before*.
-    // Let's assume `forwardConfig.offset` is the last processed message ID. We want messages *after* this.
-    // `bot.api.getChatHistory` with `offset_id` means "start from message with this ID and go backwards (older)".
-    // This is not what we want if `offset` is "last message processed".
-    //
-    // Let's reconsider: Telethon's `iter_messages(offset_id=X)` retrieves messages with IDs *greater* than X if `reverse=False`.
-    // If `reverse=True`, `offset_id` means "start from this message ID and go backwards (older)".
-    // The python `offset` parameter in `Forward` seems to be used as `offset_id` for `iter_messages`.
-    // The python code does not set `reverse=True` for past mode. It uses `OFFSET_ID` which is `min_id` in `fetch_messages`.
-    // `fetch_messages` in `past.py` uses `offset_id` (which is `min_id`) and `max_id` (which is `end`).
-    // It fetches messages in batches, and `min_id` is updated. This means it fetches messages with ID > `min_id`.
-    //
-    // For grammY `getChatHistory(chat_id, { offset_id, limit })`:
-    // `offset_id`: If specified, messages *older* than this ID are returned. 0 for most recent.
-    // This means to get newer messages, we can't use `offset_id` in a simple incrementing way.
-    //
-    // A common strategy for fetching messages chronologically (oldest to newest) after a certain point:
-    // 1. Fetch a batch of recent messages.
-    // 2. Process them from newest to oldest (or reverse the batch).
-    // 3. The `offset_id` for the next batch would be the ID of the oldest message in the current batch.
-    // This is for fetching *all* old history.
-    //
-    // If `forwardConfig.offset` is "last synced message ID", we need messages *newer* than this.
-    // Telegram Bot API does not have a direct way to say "give me messages with ID > X".
-    // We might have to fetch recent messages and filter them.
-    // Or, if `offset` is truly a date-based offset, that's different. Given it's an int, it's likely message_id.
-
-    // For this implementation, let's assume `forwardConfig.offset` is the ID of the *last message that was processed*.
-    // We need to fetch messages that came *after* it.
-    // The Bot API's `getChatHistory` by default gets latest messages. We can use `offset_date` to get messages around a certain time,
-    // or fetch recent ones and filter.
-    //
-    // Given the structure of `Forward` with `offset` and `end` (both optional message IDs),
-    // a robust solution would involve fetching messages in chunks and checking IDs.
-    // Let's simplify: fetch recent messages and if `forwardConfig.offset` is set, skip messages with ID <= offset.
-    // This is not efficient for large gaps.
-    //
-    // A better approach for "messages after offset_id X up to end_id Y":
-    // Iterate backwards from `end_id` (or latest if no `end_id`) until `offset_id` is reached.
-    // This means messages are processed newest to oldest. If chronological processing (oldest to newest) is desired,
-    // they need to be stored and reversed.
-
-    let fetchOffsetId = forwardConfig.end || 0; // Start from end_id (or latest if 0) and go backwards
+    // Strategy: Fetch messages in batches, from newest towards oldest, using `fetchOffsetId`.
+    // `fetchOffsetId` starts from `forwardConfig.end` (if specified, meaning fetch messages older than `end`)
+    // or from 0 (meaning fetch the latest messages).
+    // We process messages if their ID is > `currentOffsetId` (the actual starting point from config/storage).
+    // Messages are reversed to process from oldest to newest within a batch.
+    let fetchOffsetId = forwardConfig.end || 0; 
     let continueFetching = true;
 
-    console.log(`Source ${sourceChatId}: Initial fetchOffsetId=${fetchOffsetId}, target minimum offset_id=${currentOffsetId}`);
+    console.log(`Source ${sourceChatId}: Initial fetch_offset_id (for API call)=${fetchOffsetId}, processing messages with ID > ${currentOffsetId}. End target ID: ${forwardConfig.end || 'None'}`);
 
     while (continueFetching) {
       try {
@@ -192,9 +149,6 @@ export async function forwardJob() {
               continue; // Skip to next message
             }
 
-            // Handle Replies (Placeholder, would use tgcfMessage properties)
-            // if (tgcfMessage.originalMessage.reply_to_message) { ... }
-
             // Send to Destinations
             for (const destChatId of destinations) {
               await sendMessage(
@@ -222,17 +176,15 @@ export async function forwardJob() {
           }
         }
 
-        if (messagesToProcess.length > 0) {
-            // If we processed messages, the new "offset" for the *next run* of this job would be the ID of the last (newest) message processed.
-            // For this current run, to get the next batch of *older* messages, we take the ID of the oldest message from the *original* history batch.
-            // forwardConfig.offset = messagesToProcess[messagesToProcess.length - 1].message_id; // Update in-memory config for this run
-            // await saveLastMessageId(sourceChatId, forwardConfig.offset); // Persist for next invocation of forwardJob
-        }
+        // If we processed messages, the new "offset" for the *next run* of this job would be the ID of the last (newest) message processed.
+        // This needs to be saved to storage (e.g., database or config file).
+        // For the current run, to get the next batch of *older* messages, we take the ID of the oldest message from the *original* history batch.
+        // Example: if (messagesToProcess.length > 0) { /* save messagesToProcess[messagesToProcess.length - 1].message_id for this sourceChatId */ }
         
         fetchOffsetId = history[history.length - 1].message_id; // Oldest message in the current batch becomes offset for next older batch
         
-        if (fetchOffsetId <= currentOffsetId && currentOffsetId !== 0) { // if currentOffsetId is 0, we want all history
-             console.log(`Source ${sourceChatId}: Next fetch offset ${fetchOffsetId} is <= target start offset ${currentOffsetId}. Stopping.`);
+        if (fetchOffsetId <= currentOffsetId && currentOffsetId !== 0) { // if currentOffsetId is 0 (process all history), this condition won't stop early
+             console.log(`Source ${sourceChatId}: Next fetch API offset_id ${fetchOffsetId} is <= target start offset_id ${currentOffsetId}. Stopping.`);
              continueFetching = false;
         }
         if (!continueFetching) break; // Break from while loop if inner logic decided to stop
@@ -247,7 +199,7 @@ export async function forwardJob() {
             console.warn(`Flood control: waiting for ${retryAfter} seconds...`);
             await delay(retryAfter * 1000);
           } else if (error.error_code === 400 && error.description.includes("offset_id_invalid")) {
-            console.warn(`Source ${sourceChatId}: Invalid offset_id: ${fetchOffsetId}. This might mean the message ID doesn't exist or is too old. Stopping for this source.`);
+            console.warn(`Source ${sourceChatId}: Invalid offset_id for API call: ${fetchOffsetId}. This might mean the message ID doesn't exist or is too old. Stopping for this source.`);
             break; // Stop for this source
           } else if (error.error_code === 401 || error.error_code === 403) {
             console.error(`Source ${sourceChatId}: Unauthorized or forbidden. Check bot permissions or token. Stopping for this source.`);
@@ -256,30 +208,13 @@ export async function forwardJob() {
         } else if (error instanceof HttpError) {
             console.error('HttpError body:', error.message); // HttpError often has JSON string in message
         }
-        // Add more specific error handling as needed
+        // Consider if a generic delay is always needed or if breaking is better for some errors.
         await delay(10000); // Generic delay on other errors
       }
     }
     console.log(`Source ${sourceChatId}: Finished processing this source.`);
-    // Here you would ideally save the latest processed message ID for this source (the largest ID successfully handled)
-    // This would become the new `forwardConfig.offset` for the next time `forwardJob` runs.
-    // For example:
-    // if (messagesToProcess.length > 0) {
-    //    const newOffsetForNextRun = messagesToProcess[messagesToProcess.length-1].message_id;
-    //    config.forwards.find(f => f.source === forwardConfig.source).offset = newOffsetForNextRun;
-    //    await updateConfig(config); // This would save it to JSON/Mongo
-    // }
+    // Note: Logic to save the new 'currentOffsetId' (i.e., the highest message_id processed from this source)
+    // for the next run of `forwardJob` should be implemented here, likely using the 'storage.ts' module.
   }
   console.log('Past mode job finished.');
 }
-
-// To run the job (example):
-// if (require.main === module) {
-//   initializeConfig().then(() => {
-//     if (getConfig().mode === 1) { // 1 for past mode
-//       forwardJob().catch(console.error);
-//     } else {
-//       console.log("Not in past mode. Exiting.");
-//     }
-//   });
-// }

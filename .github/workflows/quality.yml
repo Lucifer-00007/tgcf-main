@@ -5,11 +5,25 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - uses: pre-commit/action@v2.0.0
+      - name: Checkout repository
+        uses: actions/checkout@v3 # Updated to v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Specify your project's Node.js version, e.g., 16, 18, 20
+          cache: 'npm' # Enable caching for npm dependencies
+
+      - name: Install dependencies
+        run: npm ci # Use 'npm ci' for cleaner installs in CI
+
+      - name: Run linter (ESLint)
+        run: npm run lint
+
+      - name: Check code compilation (TypeScript)
+        run: npm run build

@@ -1,20 +1,20 @@
-import { Bot, GrammyError, HttpError } from 'grammy';
+import { Bot } from 'grammy'; // Removed GrammyError, HttpError
 import { Message } from 'grammy/types';
 import {
   getConfig,
   initializeConfig,
   loadFromTo,
   loadAdmins,
-  currentConfig, // Use currentConfig after initialization
-  Config, // Import Config type if needed for explicit typing
-  Forward,
+  // currentConfig, // Removed unused import
+  // Config, // Removed unused import
+  // Forward, // Removed unused import
 } from './config';
 import { sendMessage } from './telegram_utils';
-// import { storeMessageMapping, getForwardedMessages, removeMessageMapping } from './storage'; // Placeholders
+// Removed placeholder storage import comments
 
-import { loadPlugins, applyPlugins as executeApplyPlugins } from './plugins/loader'; // Renamed to avoid conflict
+import { loadPlugins, applyPlugins as executeApplyPlugins } from './plugins/loader';
 
-// Removed the old placeholder applyPlugins function
+// Removed comment about removed placeholder function
 
 export async function startSync() {
   console.log('LIVE: Initializing configuration...');
@@ -58,7 +58,6 @@ export async function startSync() {
     // For now, let's assume we always try to register if there are admins or for general use.
     const botInfo = await bot.api.getMe();
     console.log(`LIVE: Bot info received: ${botInfo.username} (ID: ${botInfo.id})`);
-    // currentConfig.is_bot = botInfo.is_bot; // This should ideally update the persisted config if necessary
 
     // Define commands (example)
     const commands = [
@@ -79,9 +78,6 @@ export async function startSync() {
     const chatId = ctx.chat.id;
     const message = ctx.message;
 
-    // Log every message received for debugging, if needed (can be verbose)
-    // console.log(`LIVE: Received message in chat ${chatId}:`, message);
-
     if (fromToMap.has(chatId)) {
       const { destinations, forwardConfig } = fromToMap.get(chatId)!;
       console.log(`LIVE: New message in configured source chat ${chatId} (Rule: "${forwardConfig.con_name || 'Unnamed'}"). Processing...`);
@@ -94,16 +90,8 @@ export async function startSync() {
           return; // Plugin chain decided to stop processing
         }
 
-        // Reply handling placeholder (would use tgcfMessage.originalMessage.reply_to_message)
-        // if (tgcfMessage.originalMessage.reply_to_message) {
-        //   console.log(`LIVE: Message ${tgcfMessage.originalMessage.message_id} is a reply to ${tgcfMessage.originalMessage.reply_to_message.message_id}`);
-        // }
-
         for (const destChatId of destinations) {
           console.log(`LIVE: Sending processed message (Original ID: ${tgcfMessage.originalMessage.message_id}) from ${chatId} to ${destChatId}`);
-          // Pass tgcfMessage to sendMessage, or relevant parts of it
-          // sendMessage will now need to be aware of TgcfNodeMessage structure if filePath is used.
-          // For now, assuming sendMessage is adapted or we pass originalMessage if no file modifications.
           await sendMessage(
             bot,
             destChatId,
@@ -112,7 +100,7 @@ export async function startSync() {
             liveConfig.show_forwarded_from,
             tgcfMessage // Pass the processed TgcfNodeMessage for potential file path or modified text
           );
-          // Placeholder: storeMessageMapping(ctx, destChatId, forwardedMsg);
+          // Future: storeMessageMapping(ctx, destChatId, forwardedMsg);
         }
       } catch (error) {
         console.error(`LIVE: Error processing new message ${message.message_id} from chat ${chatId}:`, error);
@@ -153,63 +141,16 @@ export async function startSync() {
           return; // Plugin chain decided to stop processing
         }
         
-        const processedMessage = tgcfMessage.originalMessage; // For compatibility with existing logic using 'processedMessage'
-                                                          // Ideally, logic below should use tgcfMessage directly
-
-        // Placeholder: Delete on Edit Logic
-        // const deleteOnEditText = liveConfig.live.delete_on_edit;
-        // if (deleteOnEditText && processedMessage.text === deleteOnEditText) {
-        //   console.log(`LIVE: Message ${processedMessage.message_id} text matches delete_on_edit pattern. Deleting forwarded versions.`);
-        //   const forwardedMsgInfos = getForwardedMessages(ctx); // Assuming ctx has enough info for original message
-        //   if (forwardedMsgInfos) {
-        //     for (const [destChatId, msgInfo] of forwardedMsgInfos) {
-        //       try {
-        //         await bot.api.deleteMessage(destChatId, msgInfo.message_id);
-        //         console.log(`LIVE: Deleted forwarded message in ${destChatId} (original ${processedMessage.message_id})`);
-        //       } catch (delError) {
-        //         console.error(`LIVE: Error deleting message in ${destChatId} for original ${processedMessage.message_id}:`, delError);
-        //       }
-        //     }
-        //     removeMessageMapping(ctx); // Remove from storage
-        //   }
-        //   return; // Stop further processing for this edit
-        // }
-
-        // Placeholder: Edit forwarded messages
-        // const forwardedMsgInfos = getForwardedMessages(ctx);
-        // if (forwardedMsgInfos) {
-        //   for (const [destChatId, msgInfo] of forwardedMsgInfos) {
-        //     try {
-        //       // This is highly dependent on message type and what can be edited.
-        //       // Text messages are most common.
-        //       if (processedMessage.text && msgInfo.can_be_edited) { // Assuming msgInfo tells us if it can be edited
-        //         await bot.api.editMessageText(destChatId, msgInfo.message_id, processedMessage.text);
-        //         console.log(`LIVE: Edited forwarded message text in ${destChatId} (original ${processedMessage.message_id})`);
-        //       } else if (processedMessage.caption && msgInfo.can_edit_caption) {
-        //          await bot.api.editMessageCaption(destChatId, msgInfo.message_id, { caption: processedMessage.caption });
-        //          console.log(`LIVE: Edited forwarded message caption in ${destChatId} (original ${processedMessage.message_id})`);
-        //       }
-        //       // Add other editable types if necessary
-        //     } catch (editError) {
-        //       console.error(`LIVE: Error editing message in ${destChatId} for original ${processedMessage.message_id}:`, editError);
-        //     }
-        //   }
-        // } else {
-        //   // If no record of forwarded message, maybe send as new? (Optional, based on desired behavior)
-        //   console.log(`LIVE: No record of forwarded messages for original ${processedMessage.message_id}. Sending edit as new message.`);
-        //   for (const destChatId of destinations) {
-        //     await sendMessage(bot, destChatId, processedMessage, chatId, liveConfig.show_forwarded_from);
-        //   }
-        // }
-
-        // Fallback for now: treat edits as new messages if not handled by above logic
-        // This is a simplification. Proper edit handling requires robust storage.
-        console.warn(`LIVE: Edited message ${editedMessage.message_id} received. Full edit sync not implemented. Forwarding as new for now.`);
+        const processedGrammyMessage = tgcfMessage.originalMessage; // Use originalMessage from TgcfNodeMessage for sending
+                                                          
+        // Full edit sync (delete_on_edit, actual edit of forwarded messages) requires storage
+        // and is a more complex feature. For now, we log and forward as new.
+        console.warn(`LIVE: Edited message ${editedMessage.message_id} received. Full edit sync not implemented. Forwarding as new message for now.`);
         for (const destChatId of destinations) {
             await sendMessage(
                 bot,
                 destChatId,
-                processedMessage, // or tgcfMessage.originalMessage
+                processedGrammyMessage, 
                 chatId,
                 liveConfig.show_forwarded_from,
                 tgcfMessage // Pass the processed TgcfNodeMessage

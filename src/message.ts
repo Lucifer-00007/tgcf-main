@@ -16,6 +16,7 @@ export class TgcfNodeMessage {
   cleanupFilePath?: boolean = false;
   replyToMessageId?: number;
   senderId?: number;
+  overrideSendBot?: Bot; // Property to hold an alternative Bot instance for sending
   // Allow custom properties for plugins
   [key: string]: any;
 

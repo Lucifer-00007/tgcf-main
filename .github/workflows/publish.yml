@@ -1,26 +1,44 @@
-name: Publish Packages
+name: Publish Docker Image
 
 on:
   release:
-    types: [published]
-
+    types: [published] # Trigger on new GitHub releases
 
 jobs:
-  release:
+  release_docker: # Renamed job for clarity
     runs-on: ubuntu-latest
+    permissions: # Added permissions which might be needed for some actions or future enhancements
+      contents: read
+      packages: write # If publishing to GitHub Packages registry in the future
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-      - run: pip install --upgrade poetry
-      - name: Publish to PyPI
-        run: poetry publish --build
-        env:
-          POETRY_HTTP_BASIC_PYPI_USERNAME: "__token__"
-          POETRY_HTTP_BASIC_PYPI_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
+      - name: Checkout repository
+        uses: actions/checkout@v3 # Updated to v3
+
+      - name: Set up QEMU # For multi-platform builds, optional but good practice
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx # For advanced image building capabilities
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2 # Updated to v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build docker images and publish
-        run: make docker-release
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: aahnik/tgcf # Replace with your Docker Hub image name if different
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha # Optional: cache from GitHub Actions cache
+          cache-to: type=gha,mode=max # Optional: cache to GitHub Actions cache

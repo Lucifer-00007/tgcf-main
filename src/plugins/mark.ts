@@ -15,11 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 // ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 // For this implementation, we assume FFmpeg is available in the PATH.
 
-// Re-defining Position based on python-watermark's typical usage if not directly importable
-// This mirrors the options usually available: 'TL', 'TR', 'BL', 'BR', 'C' (Top-Left, Top-Right, Bottom-Left, Bottom-Right, Centre)
-// And also 'scale:factor:x_margin:y_margin' or 'scale_factor'
-// For simplicity, we'll use the enum from plugin_models.ts (PluginWatermarkPosition)
-// which should be sufficient for basic positioning. Complex string positions will be handled as strings.
+// Watermark positioning is handled by mapping PluginWatermarkPosition to library-specific gravity/overlay settings.
+// Complex string positions (e.g., 'scale:0.5:0:0') might require specific parsing if fully supported beyond direct pass-through.
 
 export class MarkPlugin implements ITgcfPlugin {
   readonly id = "mark";
@@ -54,7 +51,6 @@ export class MarkPlugin implements ITgcfPlugin {
       console.warn("MarkPlugin: No watermark image path configured. Watermarking will be disabled.");
       this.watermarkImagePath = undefined;
     }
-    // Library initialization would go here if needed, e.g., sharp or fluent-ffmpeg setup.
   }
 
   async modify(tm: TgcfNodeMessage): Promise<TgcfNodeMessage | null> {
@@ -76,28 +72,21 @@ export class MarkPlugin implements ITgcfPlugin {
     }
     console.log(`MarkPlugin: Original file downloaded to ${originalFilePath}`);
 
-    // Placeholder for Watermarking Logic
-    // const watermarkedFilePath = await this.applyWatermark(originalFilePath, tm.fileType);
-    // if (watermarkedFilePath) {
-    //   console.log(`MarkPlugin: File watermarked successfully. New path: ${watermarkedFilePath}`);
-    //   await tm.clearTemporaryFile(); // Clean up the original download
-    //   tm.filePath = watermarkedFilePath;
-    //   tm.cleanupFilePath = true; // Mark the new watermarked file for cleanup
-    // } else {
-    //   console.error(`MarkPlugin: Failed to apply watermark for message ID ${tm.originalMessage.message_id}. Original file path: ${originalFilePath}`);
-    //   // Decide if we should clear the original downloaded file even if watermarking failed
-    //   // For now, it will be cleared when the TgcfNodeMessage is processed further or if an error occurs in applyPlugins
-    // }
-
-    console.warn("MarkPlugin: applyWatermark method is not implemented. Returning original file for now.");
-    // Since applyWatermark is a placeholder, we return tm without changing filePath to a watermarked one.
-    // The original downloaded file (originalFilePath) is still in tm.filePath and tm.cleanupFilePath is true.
-    // This means it will be cleaned up by the plugin loader's finally block if no other plugin modifies it.
+    const watermarkedFilePath = await this.applyWatermark(originalFilePath, tm.fileType);
+    if (watermarkedFilePath) {
+      await tm.clearTemporaryFile(); // Clean up the original download
+      tm.filePath = watermarkedFilePath;
+      tm.cleanupFilePath = true; // Mark the new watermarked file for cleanup
+      console.log(`MarkPlugin: Watermark applied to ${tm.fileType}. New file path: ${watermarkedFilePath} for original message ID ${tm.originalMessage.message_id}`);
+    } else {
+      console.warn(`MarkPlugin: Failed to apply watermark to ${tm.fileType} for message ID ${tm.originalMessage.message_id}. Original file path: ${originalFilePath}`);
+      // The original downloaded file remains in tm.filePath and will be cleaned up by the loader if no other changes.
+    }
     return tm;
   }
 
   private async applyWatermark(inputPath: string, fileType: FileType): Promise<string | undefined> {
-    console.log(`MarkPlugin: applyWatermark called for input: ${inputPath}, type: ${fileType}`);
+    console.log(`MarkPlugin: applyWatermark called for input: ${inputPath}, type: ${fileType}, watermark image: ${this.watermarkImagePath}`);
     if (!this.watermarkImagePath) {
       console.error("MarkPlugin: Watermark image path is not set in applyWatermark.");
       return undefined;

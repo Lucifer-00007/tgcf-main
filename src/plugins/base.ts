@@ -37,25 +37,6 @@ export interface ITgcfPlugin {
   modify(message: TgcfNodeMessage): Promise<TgcfNodeMessage | null | undefined>;
 }
 
-// Optional: Abstract base class for plugins if common utilities are identified.
-// For now, the interface is sufficient.
-/*
-export abstract class TgcfBasePlugin implements ITgcfPlugin {
-  public readonly id: string;
-
-  constructor(id: string) {
-    this.id = id;
-  }
-
-  public async init?(): Promise<void> {
-    // Default implementation: do nothing
-  }
-
-  public abstract modify(message: TgcfNodeMessage): Promise<TgcfNodeMessage | null | undefined>;
-
-  // Example of a common utility method plugins might need
-  // protected log(level: string, msg: string): void {
-  //   console.log(`[${this.id}] [${level.toUpperCase()}]: ${msg}`);
-  // }
-}
-*/
+// Note: An abstract base class (TgcfBasePlugin) was previously considered here
+// but deemed not essential for the current plugin structure.
+// The ITgcfPlugin interface is used directly by all plugins.

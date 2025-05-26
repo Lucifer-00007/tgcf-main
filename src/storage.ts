@@ -36,7 +36,6 @@ export function storeMessageMapping(
       console.log(`Storage: Pruned oldest message mapping for key ${oldestKey} to maintain size.`);
     }
   }
-  // console.log(`Storage: Stored mapping for ${key} -> ${destChatId}:${forwardedMessageId}`);
 }
 
 /**
@@ -85,7 +84,6 @@ export function removeMessageMapping(
   const key = `${originalChatId}-${originalMessageId}`;
   if (messageMappings.has(key)) {
     messageMappings.delete(key);
-    // console.log(`Storage: Removed all mappings for original message ${key}`);
   }
 }
 

@@ -61,14 +61,15 @@ export enum WatermarkPosition {
   BOTTOM_LEFT = "BL",
   BOTTOM_RIGHT = "BR",
   CENTRE = "C",
-  // Python library also supports (scale, x, y) tuples, complex for direct translation here
-  // For simplicity, starting with basic positions.
 }
 
 // Interface for watermark plugin configuration
 export interface MarkPluginConfig {
   check: boolean;
   image?: string; // Path or URL to watermark image
+  // Python's watermark library also supports (scale, x_margin, y_margin) tuples for position,
+  // which is complex for direct translation here.
+  // Current implementation supports simple enum positions and direct string pass-through for libraries like sharp.
   position?: WatermarkPosition | string; // Allow string for custom like 'scale:0.5:0:0'
   frame_rate?: number; // For video watermarking
 }

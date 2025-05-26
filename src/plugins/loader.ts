@@ -1,61 +1,24 @@
 import { ITgcfPlugin } from './base';
 import { TgcfNodeMessage } from '../message';
+import { ITgcfPlugin } from './base';
+import { TgcfNodeMessage } from '../message';
 import { Bot } from 'grammy';
 import { Message as TypegramMessage } from 'grammy/types'; // Using TypegramMessage as alias
-import {
-  PluginsConfig,
-  FilterPluginConfig,
-  FormatPluginConfig,
-  MarkPluginConfig,
-  OcrPluginConfig,
-  ReplacePluginConfig,
-  CaptionPluginConfig,
-  SenderPluginConfig,
-} from '../plugin_models';
+import { PluginsConfig } from '../plugin_models'; // Removed individual plugin config imports
 
-// Placeholder imports for actual plugin classes (to be created in subsequent steps)
-// import { FilterPlugin } from './filter';
-// import { FormatPlugin } from './format';
-// import { MarkPlugin } from './mark';
-// import { OcrPlugin } from './ocr';
-// import { ReplacePlugin } from './replace';
-// import { CaptionPlugin } from './caption';
-// import { FormatPlugin } from './format';
-// import { MarkPlugin } from './mark';
-// import { OcrPlugin } from './ocr';
-// import { ReplacePlugin } from './replace';
-// import { CaptionPlugin } from './caption';
-// import { MarkPlugin } from './mark';
-// import { OcrPlugin } from './ocr';
-// import { ReplacePlugin } from './replace';
-// import { CaptionPlugin } from './caption';
-// import { OcrPlugin } from './ocr';
-// import { ReplacePlugin } from './replace';
-// import { CaptionPlugin } from './caption';
-// import { ReplacePlugin } from './replace';
-// import { CaptionPlugin } from './caption';
-// import { CaptionPlugin } from './caption';
-// import { SenderPlugin } from './sender';
+// Removed placeholder import comments for actual plugin classes
+
 import { FilterPlugin } from './filter'; // Import actual FilterPlugin
 import { FormatPlugin } from './format'; // Import actual FormatPlugin
 import { ReplacePlugin } from './replace'; // Import actual ReplacePlugin
 import { CaptionPlugin } from './caption'; // Import actual CaptionPlugin
 import { MarkPlugin } from './mark'; // Import actual MarkPlugin
+import { OcrPlugin } from './ocr'; // Import actual OcrPlugin
+import { SenderPlugin } from './sender'; // Import actual SenderPlugin
 
 export const loadedPlugins = new Map<string, ITgcfPlugin>();
 
-// Dummy plugin for testing loader structure (can be removed if all plugins are implemented)
-class DummyPlugin implements ITgcfPlugin {
-  constructor(public id: string, public config: any) {}
-  async modify(message: TgcfNodeMessage): Promise<TgcfNodeMessage | null | undefined> {
-    console.log(`DummyPlugin ${this.id} (config: ${JSON.stringify(this.config)}) received message, text: ${message.text}`);
-    return message;
-  }
-  async init?(): Promise<void> {
-      console.log(`DummyPlugin ${this.id} initialized.`);
-  }
-}
-
+// DummyPlugin class removed as it's no longer needed.
 
 export async function loadPlugins(bot: Bot, pluginsConfig: PluginsConfig): Promise<void> {
   loadedPlugins.clear();
@@ -107,20 +70,16 @@ export async function loadPlugins(bot: Bot, pluginsConfig: PluginsConfig): Promi
 
   if (pluginsConfig.ocr && pluginsConfig.ocr.check) {
     console.log('Loading OcrPlugin...');
-    // const { OcrPlugin } = await import('./ocr'); // Placeholder
-    // const plugin = new OcrPlugin(pluginsConfig.ocr);
-    const plugin = new DummyPlugin('ocr', pluginsConfig.ocr); // Using Dummy for now
-    if (plugin.init) await plugin.init();
+    const plugin = new OcrPlugin(pluginsConfig.ocr); // Use actual OcrPlugin
+    if (plugin.init) await plugin.init(); // OcrPlugin has an init method
     loadedPlugins.set(plugin.id, plugin);
     console.log(`Plugin ${plugin.id} loaded.`);
   }
 
   if (pluginsConfig.sender && pluginsConfig.sender.check) {
     console.log('Loading SenderPlugin...');
-    // const { SenderPlugin } = await import('./sender'); // Placeholder
-    // const plugin = new SenderPlugin(pluginsConfig.sender);
-    const plugin = new DummyPlugin('sender', pluginsConfig.sender); // Using Dummy for now
-    if (plugin.init) await plugin.init(); // Sender plugin might need async init for its own bot client
+    const plugin = new SenderPlugin(pluginsConfig.sender); // Use actual SenderPlugin
+    if (plugin.init) await plugin.init(); // SenderPlugin has an init method
     loadedPlugins.set(plugin.id, plugin);
     console.log(`Plugin ${plugin.id} loaded.`);
   }
