@@ -10,16 +10,6 @@
 The ultimate tool to automate custom telegram message forwarding.
 </p>
 
-<p align="center">
-<a href="https://github.com/aahnik/tgcf/blob/main/LICENSE"><img src="https://img.shields.io/github/license/aahnik/tgcf" alt="GitHub license"></a>
-<a href="https://github.com/aahnik/tgcf/stargazers"><img src="https://img.shields.io/github/stars/aahnik/tgcf?style=social" alt="GitHub stars"></a>
-<a href="https://github.com/aahnik/tgcf/issues"><img src="https://img.shields.io/github/issues/aahnik/tgcf" alt="GitHub issues"></a>
-<a href="https://twitter.com/intent/tweet?text=Wow:&amp;url=https%3A%2F%2Fgithub.com%2Faahnik%2Ftgcf"><img src="https://img.shields.io/twitter/url?style=social&amp;url=https%3A%2F%2Fgithub.com%2Faahnik%2Ftgcf" alt="Twitter"></a>
-</p>
-<p align="center">
-<a href="https://github.com/aahnik/tgcf/actions/workflows/quality.yml"><img src="https://github.com/aahnik/tgcf/actions/workflows/quality.yml/badge.svg" alt="Code Quality"></a>
-</p>
-
 Live-syncer, Auto-poster, backup-bot, cloner, chat-forwarder, duplicator, ... Call it whatever you like! **tgcf** is an advanced telegram chat forwarding automation tool, now rewritten in Node.js/TypeScript, that can fulfill all your custom needs.
 
 
@@ -31,7 +21,6 @@ Extremely easy to get started yet ready for any complex task you throw at it.
 - You can choose the mode: **past** for forward all old (existing messages) or **live** for start forwarding from now.
 - Supports running with a Telegram Bot account. (Note: User account features from the Python version are not fully ported for all operations in this Node.js version).
 - You can customize every detail of the forwarding with the help of plugins: **filter**(blacklist/whitelist), **format**(bold, italics, etc), **replace**(supports regex), **caption**(header/footer). You can even apply watermark to images/videos (video watermarking requires FFmpeg), or perform optical character recognition (ocr) on images (requires Tesseract language data).
-- Detailed [**documentation**](https://github.com/aahnik/tgcf/wiki) (Note: Wiki may contain outdated information from the Python version) and [**videos**](https://www.youtube.com/playlist?list=PLSTrsq_DvEgisMG5BLUf97tp2DoAnwCMG) (from Python version) makes it easy for you to configure tgcf.
 - Supported environments: Any platform where Node.js can run, including **Linux**, **Mac**, **Windows**. Docker support can be added.
 - All these is **free and open source**. You may sponsor to accelerate the development of any new feature and get fast support over chat.
 
@@ -48,8 +37,7 @@ Extremely easy to get started yet ready for any complex task you throw at it.
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/aahnik/tgcf.git
-    cd tgcf
+    git clone https://github.com/Lucifer-00007/tgcf-main.git
     ```
 2.  Install dependencies:
     ```bash
@@ -124,13 +112,11 @@ Make sure your `package.json`'s "scripts" section has a "start" script like:
 
 ## Deploy to Cloud
 
-Cloud deployment guides need to be updated for the Node.js version. Previous guides for Python are not directly applicable.
 *   General guidance for Node.js deployment on platforms like Docker, Digital Ocean (Droplets/App Platform), AWS (EC2/Lambda), Google Cloud Run, etc., can be followed.
 *   Ensure your chosen environment supports Node.js, FFmpeg (if needed), and can access Tesseract language data (if OCR is used).
 
 ## Getting Help
 
-- First of all [read the wiki](https://github.com/aahnik/tgcf/wiki) (Note: The wiki is likely outdated and refers to the Python version. It will be updated over time).
 - Type your question in GitHub's Search bar on the top left of this page,
   and click "In this repository".
   Go through the issues and discussions that appear in the result.
