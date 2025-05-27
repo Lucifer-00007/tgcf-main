@@ -39,8 +39,6 @@ export interface BotMessages {
   bot_help?: string;
 }
 
-// Unused PluginConfig interface removed. PluginsConfig from ./plugin_models is used.
-
 import { PluginsConfig } from './plugin_models'; // Import PluginsConfig
 
 export interface Config {
@@ -136,8 +134,8 @@ export function loadConfigFromFile(filePath: string): Config {
     console.error(`Error loading or parsing config file at ${filePath}:`, error);
     console.warn('Using default configuration due to error.');
     return { ...DEFAULT_CONFIG };
-  } // End of loadConfigFromFile
-} // End of loadConfigFromFile, ensure this curly brace is correct. It seems like the function was interrupted.
+  }
+}
 
 import { Bot } from 'grammy'; // Import Bot for resolveChatId
 
@@ -223,6 +221,49 @@ export async function closeDBConnection(client: MongoClient): Promise<void> {
   }
 }
 
+
+// Helper function to merge specific nested configuration objects
+function mergeNestedConfigObjects(
+  targetConfig: Config, // The config object to be updated
+  sourceConfig: Partial<Config>, // The config object with new values (can be partial)
+  baseConfig: Config // The base configuration (e.g., DEFAULT_CONFIG or currentConfig)
+): void {
+  // Merge 'login', 'live', 'past', 'bot_messages' objects
+  // For each, spread the corresponding object from baseConfig, then spread the one from sourceConfig (if it exists)
+  // This ensures that all keys from baseConfig are present, and values from sourceConfig override them.
+  targetConfig.login = { ...(baseConfig.login || {}), ...(sourceConfig.login || {}) };
+  targetConfig.live = { ...(baseConfig.live || {}), ...(sourceConfig.live || {}) };
+  targetConfig.past = { ...(baseConfig.past || {}), ...(sourceConfig.past || {}) };
+  targetConfig.bot_messages = { ...(baseConfig.bot_messages || {}), ...(sourceConfig.bot_messages || {}) };
+
+  // Deep merge for 'plugins'
+  // Start with a copy of the plugins structure from baseConfig
+  targetConfig.plugins = { ...(baseConfig.plugins || {}) } as PluginsConfig;
+  if (sourceConfig.plugins) {
+    for (const pluginKey in sourceConfig.plugins) {
+      // Ensure pluginKey is a valid key of PluginsConfig and exists in baseConfig.plugins
+      // The hasOwnProperty check is on sourceConfig.plugins to iterate only its keys.
+      if (sourceConfig.plugins.hasOwnProperty(pluginKey)) {
+        const key = pluginKey as keyof PluginsConfig;
+        const sourcePluginValue = sourceConfig.plugins[key];
+        const basePluginValue = baseConfig.plugins ? baseConfig.plugins[key] : undefined;
+
+        if (typeof sourcePluginValue === 'object' && sourcePluginValue !== null &&
+            basePluginValue && typeof basePluginValue === 'object' && basePluginValue !== null) {
+          // If both source and base plugin values are objects, merge them
+          // @ts-ignore - Trusting the structure for now
+          targetConfig.plugins[key] = { ...basePluginValue, ...sourcePluginValue };
+        } else {
+          // Otherwise, the source value (even if not an object, e.g. 'check: true') overrides/sets the value
+          // @ts-ignore - Trusting the structure for now
+          targetConfig.plugins[key] = sourcePluginValue;
+        }
+      }
+    }
+  }
+}
+
+
 // Read/Write Config from/to MongoDB
 export async function readConfigFromDB(client: MongoClient, dbName: string, colName: string): Promise<Config | null> {
   try {
@@ -231,38 +272,22 @@ export async function readConfigFromDB(client: MongoClient, dbName: string, colN
     const mongoConfigDoc = await collection.findOne({ _id: 0 });
 
     if (mongoConfigDoc && mongoConfigDoc.config) {
-      // Deep merge for nested objects like login, live, past, bot_messages, plugins
-      const baseConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy
-      let loadedConfig = { ...baseConfig, ...mongoConfigDoc.config } as Config; // Use let for reassignment if needed or ensure this is the final
-      loadedConfig.login = { ...baseConfig.login, ...(mongoConfigDoc.config.login || {}) };
-      loadedConfig.live = { ...baseConfig.live, ...(mongoConfigDoc.config.live || {}) };
-      loadedConfig.past = { ...baseConfig.past, ...(mongoConfigDoc.config.past || {}) };
-      loadedConfig.bot_messages = { ...baseConfig.bot_messages, ...(mongoConfigDoc.config.bot_messages || {}) };
+      // Use a deep copy of DEFAULT_CONFIG as the absolute base
+      const baseDefaultConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+      // Start with a shallow merge of top-level properties from mongoConfigDoc.config onto the baseDefaultConfig
+      let loadedConfig = { ...baseDefaultConfig, ...mongoConfigDoc.config } as Config;
       
-      // For plugins, ensure deep merge of each individual plugin config
-      loadedConfig.plugins = { ...baseConfig.plugins }; // Start with default plugin structure
-      if (mongoConfigDoc.config.plugins) {
-        for (const pluginKey in mongoConfigDoc.config.plugins) {
-          if (baseConfig.plugins.hasOwnProperty(pluginKey)) { // Check if pluginKey is a valid key in PluginsConfig
-            // @ts-ignore // We assume pluginKey is a valid key of PluginsConfig
-            if (typeof mongoConfigDoc.config.plugins[pluginKey] === 'object' && mongoConfigDoc.config.plugins[pluginKey] !== null) {
-              // @ts-ignore
-              loadedConfig.plugins[pluginKey] = { ...baseConfig.plugins[pluginKey], ...mongoConfigDoc.config.plugins[pluginKey] };
-            } else {
-              // If the loaded plugin config is not an object (e.g. just 'check: true'), assign it directly
-              // This might happen if config is malformed or a plugin has simpler config.
-              // @ts-ignore
-              loadedConfig.plugins[pluginKey] = mongoConfigDoc.config.plugins[pluginKey];
-            }
-          } else {
-            // If the plugin key from DB doesn't exist in default config, it might be a custom/new plugin.
-            // For safety, only copy if it's a known structure or handle appropriately.
-            // For now, we'll assign it directly, assuming it's valid.
-            // @ts-ignore
-            loadedConfig.plugins[pluginKey] = mongoConfigDoc.config.plugins[pluginKey];
-          }
-        }
-      }
+      // Apply the specific nested merging logic using the helper.
+      // The source for mergeNestedConfigObjects is mongoConfigDoc.config.
+      // The base for comparison within the helper is baseDefaultConfig.
+      mergeNestedConfigObjects(loadedConfig, mongoConfigDoc.config, baseDefaultConfig);
+      
+      // Arrays like 'admins' and 'forwards' are overwritten by the initial spread if present in mongoConfigDoc.config.
+      // If not in mongoConfigDoc.config, they retain values from baseDefaultConfig.
+      // Ensure arrays are properly assigned (mongoConfigDoc.config values preferred, then default)
+      loadedConfig.admins = mongoConfigDoc.config.admins !== undefined ? mongoConfigDoc.config.admins : baseDefaultConfig.admins;
+      loadedConfig.forwards = mongoConfigDoc.config.forwards !== undefined ? mongoConfigDoc.config.forwards : baseDefaultConfig.forwards;
+
       return loadedConfig;
     }
     console.warn(`Config not found in MongoDB (db: ${dbName}, collection: ${colName}, _id: 0). Returning null.`);
@@ -366,40 +391,21 @@ export async function initializeConfig(): Promise<Config> {
     loadedConfig = loadConfigFromFile(path.join(process.cwd(), CONFIG_FILE_NAME));
   } else { // 'default'
     loadedConfig = { ...DEFAULT_CONFIG };
-    // Optionally, save the default config to a JSON file if none exists
-    // saveConfigToFile(path.join(process.cwd(), CONFIG_FILE_NAME), loadedConfig);
-    // currentConfigType = 'json'; // If we save it, it becomes 'json'
   }
 
-  currentConfig = loadedConfig ? { ...DEFAULT_CONFIG, ...loadedConfig } : { ...DEFAULT_CONFIG };
-   // Deep merge for nested objects that might be missed by simple spread
+  // Use a deep copy of DEFAULT_CONFIG as the absolute base
+  const baseDefaultConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  // Initial assignment: if loadedConfig exists, spread it over baseDefaultConfig, otherwise use baseDefaultConfig
+  currentConfig = loadedConfig ? { ...baseDefaultConfig, ...loadedConfig } : baseDefaultConfig;
+
   if (loadedConfig) {
-      const baseConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); // Deep copy for merging
-      currentConfig.login = { ...baseConfig.login, ...(loadedConfig.login || {}) };
-      currentConfig.live = { ...baseConfig.live, ...(loadedConfig.live || {}) };
-      currentConfig.past = { ...baseConfig.past, ...(loadedConfig.past || {}) };
-      currentConfig.bot_messages = { ...baseConfig.bot_messages, ...(loadedConfig.bot_messages || {}) };
-      
-      // Deep merge for plugins
-      currentConfig.plugins = { ...baseConfig.plugins };
-      if (loadedConfig.plugins) {
-          for (const pluginKey in loadedConfig.plugins) {
-              if (baseConfig.plugins.hasOwnProperty(pluginKey)) { // Check if pluginKey is a valid key in PluginsConfig
-                  // @ts-ignore
-                  if (typeof loadedConfig.plugins[pluginKey] === 'object' && loadedConfig.plugins[pluginKey] !== null) {
-                      // @ts-ignore
-                      currentConfig.plugins[pluginKey] = { ...baseConfig.plugins[pluginKey], ...loadedConfig.plugins[pluginKey] };
-                  } else {
-                      // @ts-ignore
-                      currentConfig.plugins[pluginKey] = loadedConfig.plugins[pluginKey];
-                  }
-              } else {
-                  // @ts-ignore
-                  currentConfig.plugins[pluginKey] = loadedConfig.plugins[pluginKey]; // New plugin not in default
-              }
-          }
-      }
+    // Apply specific nested merging logic. Source is loadedConfig, base for comparison is baseDefaultConfig.
+    mergeNestedConfigObjects(currentConfig, loadedConfig, baseDefaultConfig);
+    // Ensure arrays are properly assigned (loadedConfig values preferred, then default)
+    currentConfig.admins = loadedConfig.admins !== undefined ? loadedConfig.admins : baseDefaultConfig.admins;
+    currentConfig.forwards = loadedConfig.forwards !== undefined ? loadedConfig.forwards : baseDefaultConfig.forwards;
   }
+  // If loadedConfig is null, currentConfig is already baseDefaultConfig, which is correct.
 
   console.log(`Configuration initialized. Type: ${currentConfigType}. Current config:`, JSON.stringify(currentConfig, null, 2));
   return currentConfig;
@@ -425,40 +431,28 @@ export function getConfig(): Config {
 
 // Function to update the current configuration (e.g., after modification)
 // This function needs to be aware of the config type to save correctly.
-export async function updateConfig(newConfig: Config): Promise<void> {
-  currentConfig = { ...currentConfig, ...newConfig }; // Merge to preserve existing keys not in newConfig
-  // Deep merge for nested objects to prevent them from being overwritten by partial newConfig
-  // Ensure currentConfig is updated correctly with potentially partial newConfig
-  const updatedConfig = { ...currentConfig, ...newConfig };
-  updatedConfig.login = { ...currentConfig.login, ...(newConfig.login || {}) };
-  updatedConfig.live = { ...currentConfig.live, ...(newConfig.live || {}) };
-  updatedConfig.past = { ...currentConfig.past, ...(newConfig.past || {}) };
-  updatedConfig.bot_messages = { ...currentConfig.bot_messages, ...(newConfig.bot_messages || {}) };
+export async function updateConfig(newConfig: Partial<Config>): Promise<void> { // newConfig can be partial
+  // Use a deep copy of currentConfig as the base for this update
+  const baseCurrentConfig = JSON.parse(JSON.stringify(currentConfig));
   
-  updatedConfig.plugins = { ...currentConfig.plugins };
-  if (newConfig.plugins) {
-    for (const pluginKey in newConfig.plugins) {
-      if (currentConfig.plugins.hasOwnProperty(pluginKey)) {
-        // @ts-ignore
-        if (typeof newConfig.plugins[pluginKey] === 'object' && newConfig.plugins[pluginKey] !== null) {
-          // @ts-ignore
-          updatedConfig.plugins[pluginKey] = { ...currentConfig.plugins[pluginKey], ...newConfig.plugins[pluginKey] };
-        } else {
-          // @ts-ignore
-          updatedConfig.plugins[pluginKey] = newConfig.plugins[pluginKey];
-        }
-      } else {
-         // @ts-ignore
-        updatedConfig.plugins[pluginKey] = newConfig.plugins[pluginKey]; // New plugin
-      }
-    }
-  }
+  // Start with a shallow merge of newConfig onto baseCurrentConfig for top-level properties
+  let updatedConfig = { ...baseCurrentConfig, ...newConfig } as Config;
 
-  // For arrays, decide on merge strategy (overwrite is simpler)
-  updatedConfig.admins = newConfig.admins ? [...newConfig.admins] : [...currentConfig.admins];
-  updatedConfig.forwards = newConfig.forwards ? [...newConfig.forwards] : [...currentConfig.forwards];
+  // Apply specific nested merging logic. Source is newConfig. Base for merge is baseCurrentConfig.
+  // This correctly handles partial updates to nested objects like login, live, etc.
+  mergeNestedConfigObjects(updatedConfig, newConfig, baseCurrentConfig);
 
-  currentConfig = updatedConfig; // Assign the fully merged config back to currentConfig
+  // Handle arrays: newConfig values overwrite if present, otherwise keep values from baseCurrentConfig.
+  // If newConfig.admins is undefined, it means no change to admins, so keep baseCurrentConfig.admins.
+  // If newConfig.admins is an empty array [], it means clear the admins.
+  updatedConfig.admins = newConfig.admins !== undefined ? [...newConfig.admins] : [...baseCurrentConfig.admins];
+  updatedConfig.forwards = newConfig.forwards !== undefined ? [...newConfig.forwards] : [...baseCurrentConfig.forwards];
+  
+  // Other top-level properties not explicitly handled by mergeNestedConfigObjects or array logic
+  // (e.g. pid, theme, show_forwarded_from, mode) are taken from the initial spread { ...baseCurrentConfig, ...newConfig }
+  // If they are not in newConfig, they retain their values from baseCurrentConfig.
+
+  currentConfig = updatedConfig;
 
   if (currentConfigType === 'mongo') {
     const mongoConStr = process.env.MONGO_CON_STR;

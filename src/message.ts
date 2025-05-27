@@ -1,5 +1,5 @@
 import { Bot } from 'grammy';
-import { Message, Typegram } from 'grammy/types'; // Using Message from grammy/types
+import { Message, Typegram } from 'grammy/types';
 import { FileType } from './plugin_models';
 import * as os from 'os';
 import * as fs from 'fs';

@@ -55,7 +55,6 @@ export class MarkPlugin implements ITgcfPlugin {
 
   async modify(tm: TgcfNodeMessage): Promise<TgcfNodeMessage | null> {
     if (tm.fileType !== FileType.PHOTO && tm.fileType !== FileType.VIDEO && tm.fileType !== FileType.GIF) {
-      // console.log(`MarkPlugin: FileType is ${tm.fileType}. No watermarking applied for message ID ${tm.originalMessage.message_id}.`);
       return tm;
     }
 

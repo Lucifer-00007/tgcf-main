@@ -63,7 +63,10 @@ export class OcrPlugin implements ITgcfPlugin {
     } else { // OCR failed (performOcr returned undefined)
       console.warn(`OcrPlugin: OCR failed or returned no data for message ID ${tm.originalMessage.message_id}. Text not changed.`);
     }
-    // The downloaded file (imagePath) from tm.downloadFile() will be cleaned up by the plugin loader's finally block.
+    // The downloaded file (original imagePath) is managed by the TgcfNodeMessage instance (tm).
+    // If tm.downloadFile() was called, tm.filePath is set and tm.cleanupFilePath is true.
+    // This file will be cleaned up by the cleanupTgcfMessageFile utility, typically
+    // after all plugins have run or if processing is halted.
     return tm;
   }
 

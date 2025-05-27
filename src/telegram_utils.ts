@@ -1,7 +1,15 @@
 import { Bot, GrammyError } from 'grammy';
 import { Message } from 'grammy/types';
 import { InputFile } from 'grammy'; // Import InputFile
-import { TgcfNodeMessage } from '../message'; // Import TgcfNodeMessage
+import { TgcfNodeMessage } from './message'; // Corrected import path for TgcfNodeMessage
+
+// Helper function to clean up temporary files from TgcfNodeMessage
+export async function cleanupTgcfMessageFile(tgcfMessage: TgcfNodeMessage | undefined): Promise<void> {
+  if (tgcfMessage && tgcfMessage.filePath && tgcfMessage.cleanupFilePath) {
+    console.log(`UTILS: Cleaning up temporary file: ${tgcfMessage.filePath}`);
+    await tgcfMessage.clearTemporaryFile();
+  }
+}
 
 export async function sendMessage(
   bot: Bot,

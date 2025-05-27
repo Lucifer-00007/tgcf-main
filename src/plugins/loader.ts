@@ -1,14 +1,11 @@
 import { ITgcfPlugin } from './base';
-import { TgcfNodeMessage } from '../message';
-import { ITgcfPlugin } from './base';
-import { TgcfNodeMessage } from '../message';
+import { TgcfNodeMessage } from '../message'; // Corrected: Import once
 import { Bot } from 'grammy';
 import { Message as TypegramMessage } from 'grammy/types'; // Using TypegramMessage as alias
-import { PluginsConfig } from '../plugin_models'; // Removed individual plugin config imports
+import { PluginsConfig } from '../plugin_models';
+import { cleanupTgcfMessageFile } from '../telegram_utils'; // Import the helper
 
-// Removed placeholder import comments for actual plugin classes
-
-import { FilterPlugin } from './filter'; // Import actual FilterPlugin
+import { FilterPlugin } from './filter';
 import { FormatPlugin } from './format'; // Import actual FormatPlugin
 import { ReplacePlugin } from './replace'; // Import actual ReplacePlugin
 import { CaptionPlugin } from './caption'; // Import actual CaptionPlugin
@@ -17,8 +14,6 @@ import { OcrPlugin } from './ocr'; // Import actual OcrPlugin
 import { SenderPlugin } from './sender'; // Import actual SenderPlugin
 
 export const loadedPlugins = new Map<string, ITgcfPlugin>();
-
-// DummyPlugin class removed as it's no longer needed.
 
 export async function loadPlugins(bot: Bot, pluginsConfig: PluginsConfig): Promise<void> {
   loadedPlugins.clear();
@@ -94,18 +89,14 @@ export async function applyPlugins(bot: Bot, originalMessage: TypegramMessage): 
       const modifiedMessage = await plugin.modify(tgcfMessage);
       if (!modifiedMessage) {
         console.log(`Message processing stopped by plugin: ${plugin.id}. Original message ID: ${originalMessage.message_id}`);
-        if (tgcfMessage.filePath && tgcfMessage.cleanupFilePath) { // Check if the current tgcfMessage instance has a file to clean
-            await tgcfMessage.clearTemporaryFile();
-        }
+        await cleanupTgcfMessageFile(tgcfMessage); // Use helper
         return null;
       }
       tgcfMessage = modifiedMessage; // Update tgcfMessage with the result from the plugin
     } catch (error) {
       console.error(`Error applying plugin ${plugin.id} to message ID ${originalMessage.message_id}:`, error);
       // Decide if processing should stop on plugin error. For now, let's stop.
-      if (tgcfMessage.filePath && tgcfMessage.cleanupFilePath) {
-        await tgcfMessage.clearTemporaryFile();
-      }
+      await cleanupTgcfMessageFile(tgcfMessage); // Use helper
       return null; // Or re-throw, or return tgcfMessage as it was before error
     }
   }

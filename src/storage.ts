@@ -75,7 +75,7 @@ export function getForwardedMessages(
 /**
  * Removes all mappings for a given original message.
  * @param originalChatId The ID of the chat where the original message was sent.
- *_ @param originalMessageId The ID of the original message.
+ * @param originalMessageId The ID of the original message.
  */
 export function removeMessageMapping(
   originalChatId: number,
