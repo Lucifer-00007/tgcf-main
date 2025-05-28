@@ -1,0 +1,30 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "<!-- markdownlint-disable --> <p align=\"center\">   <a href=\"https://github.com/Lucifer-00007/tgcf-main\">     <img src=\"https://user-images.githubusercontent.com/66209958/115183360-3fa4d500-a0f9-11eb-9c0f-c5ed03a9ae17.png\" alt=\"tgcf logo\" width=\"150\">   </a> </p>",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lucifer-00007/tgcf-main.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Lucifer-00007/tgcf-main/issues"
+  },
+  "homepage": "https://github.com/Lucifer-00007/tgcf-main#readme",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "gram": "^3.0.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.1",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.0.0"
+  }
+}
