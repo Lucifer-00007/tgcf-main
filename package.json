@@ -4,7 +4,9 @@
   "description": "<!-- markdownlint-disable --> <p align=\"center\">   <a href=\"https://github.com/Lucifer-00007/tgcf-main\">     <img src=\"https://user-images.githubusercontent.com/66209958/115183360-3fa4d500-a0f9-11eb-9c0f-c5ed03a9ae17.png\" alt=\"tgcf logo\" width=\"150\">   </a> </p>",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "repository": {
     "type": "git",

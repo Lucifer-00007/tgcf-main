@@ -12,7 +12,7 @@ class ForwardingService {
     this.pastModeLoops = new Map();
     // Conceptual store for message IDs: { originalMessageId: { destinationChatId: forwardedMessageId, ... } }
     // This would need persistent storage or a more robust in-memory solution for production.
-    this.forwardedMessageMappings = new Map(); 
+    this.forwardedMessageMappings = new Map();
     logger.info('ForwardingService initialized');
   }
 
@@ -31,9 +31,9 @@ class ForwardingService {
     try {
       await pluginService.loadPlugins();
     } catch (error) {
-        logger.error({error}, "Error loading plugins during ForwardingService start. Aborting start.");
-        this.isRunning = false;
-        return { success: false, message: 'Failed to load plugins.' };
+      logger.error({ error }, "Error loading plugins during ForwardingService start. Aborting start.");
+      this.isRunning = false;
+      return { success: false, message: 'Failed to load plugins.' };
     }
 
 
@@ -53,24 +53,25 @@ class ForwardingService {
     }
 
     logger.info('ForwardingService stopping...');
-    this.isRunning = false; 
+    this.isRunning = false;
 
-    this.liveModeStopFunctions.forEach((client, sessionName) => {
+    this.liveModeStopFunctions.forEach(async (client, sessionName) => {
       try {
         // Assuming client.removeEventHandler needs the specific handler function and event class
         // This is complex as handlers are anonymous. A better way is to manage handlers explicitly.
         // For now, disconnect should stop event processing.
         // If gram.js client.disconnect() doesn't remove handlers, this needs refinement.
         logger.info(`Removing event handlers conceptually for session: ${sessionName}. Actual removal may depend on client disconnect behavior.`);
-        // client.disconnect(); // Or specific handler removal if available
+        await client.disconnect();            // Close socket
+        client.removeEventHandlers();         // gram.js helper, or keep explicit refs (preferred)
       } catch (error) {
-        logger.error({error, sessionName}, `Error stopping live mode for session ${sessionName}`);
+        logger.error({ error, sessionName }, `Error stopping live mode for session ${sessionName}`);
       }
     });
     this.liveModeStopFunctions.clear();
 
-    this.pastModeLoops.forEach((_, key) => this.pastModeLoops.set(key, false)); 
-    
+    this.pastModeLoops.forEach((_, key) => this.pastModeLoops.set(key, false));
+
     this.currentMode = null;
     logger.info('ForwardingService stopped.');
     return { success: true, message: 'Service stopped.' };
@@ -88,13 +89,13 @@ class ForwardingService {
 
   async _handleNewLiveMessage(rawGramJsEventMessage, sessionName) {
     if (!this.isRunning || this.currentMode !== 'live') return;
-    
+
     logger.debug({ messageId: rawGramJsEventMessage.id, chatId: rawGramJsEventMessage.chatId?.toString(), sessionName }, 'New live message received.');
 
     const client = await telegramService.getClient(sessionName);
     if (!client) {
-        logger.error({ sessionName, messageId: rawGramJsEventMessage.id }, `[Live Mode] Could not get client for message processing.`);
-        return;
+      logger.error({ sessionName, messageId: rawGramJsEventMessage.id }, `[Live Mode] Could not get client for message processing.`);
+      return;
     }
 
     let tgcfMessage = {
@@ -111,7 +112,7 @@ class ForwardingService {
       custom_data: {},
       _drop: false,
     };
-    
+
     let processedTgcfMessage;
     try {
       processedTgcfMessage = await pluginService.applyPlugins(tgcfMessage);
@@ -126,7 +127,7 @@ class ForwardingService {
       logger.info({ messageId: tgcfMessage.message_id, sessionName }, `[Live Mode] Message dropped by a plugin or explicitly.`);
       return;
     }
-    
+
     logger.debug({ messageId: processedTgcfMessage.message_id, sessionName, newText: processedTgcfMessage.text }, `[Live Mode] Message processed by plugins.`);
     const config = await configService.getConfig();
 
@@ -143,16 +144,16 @@ class ForwardingService {
             // Prepare message text, possibly with "Forwarded from" header
             let textToSend = processedTgcfMessage.text;
             if (config.show_forwarded_from) {
-                const senderInfo = processedTgcfMessage.sender_id ? `user ${processedTgcfMessage.sender_id}` : `chat ${messageChatIdStr}`;
-                // Note: Markdown for header might be complex if original text is also markdown.
-                // For simplicity, using plain text header. Plugins can format this better.
-                textToSend = `Forwarded from ${senderInfo}:\n${processedTgcfMessage.text}`;
+              const senderInfo = processedTgcfMessage.sender_id ? `user ${processedTgcfMessage.sender_id}` : `chat ${messageChatIdStr}`;
+              // Note: Markdown for header might be complex if original text is also markdown.
+              // For simplicity, using plain text header. Plugins can format this better.
+              textToSend = `Forwarded from ${senderInfo}:\n${processedTgcfMessage.text}`;
             }
-            
+
             // Create a new TgcfMessage for sending, inheriting relevant properties
             const messageToSendPayload = {
-                ...processedTgcfMessage, // carries file info, entities, etc.
-                text: textToSend, // use the potentially prefixed text
+              ...processedTgcfMessage, // carries file info, entities, etc.
+              text: textToSend, // use the potentially prefixed text
             };
 
             const sentMessage = await telegramService.sendMessage(destination, messageToSendPayload, sessionName);
@@ -173,11 +174,11 @@ class ForwardingService {
     const globalConfig = await configService.getConfig();
 
     const forwardsByConnection = globalConfig.forwards.reduce((acc, rule) => {
-        if (rule.use_this) {
-            acc[rule.con_name] = acc[rule.con_name] || [];
-            acc[rule.con_name].push(rule);
-        }
-        return acc;
+      if (rule.use_this) {
+        acc[rule.con_name] = acc[rule.con_name] || [];
+        acc[rule.con_name].push(rule);
+      }
+      return acc;
     }, {});
 
     for (const sessionName in forwardsByConnection) {
@@ -188,7 +189,7 @@ class ForwardingService {
           const newMessageHandler = (event) => this._handleNewLiveMessage(event.message, sessionName);
           const editedMessageHandler = (event) => this._handleEditedLiveMessage(event.message, sessionName);
           const deletedMessageHandler = (event) => this._handleDeletedLiveMessage(event.deletedIds, event.chatId, sessionName);
-          
+
           client.addEventHandler(newMessageHandler, new NewMessage({ chats: forwardsByConnection[sessionName].map(r => r.source) }));
           client.addEventHandler(editedMessageHandler, new MessageEdited({ chats: forwardsByConnection[sessionName].map(r => r.source) }));
           // MessageDeleted event might need broader chat scope if deletions are for any message in a chat where source is.
@@ -299,13 +300,13 @@ class ForwardingService {
                 custom_data: {},
                 _drop: false,
               };
-              
+
               let processedTgcfMessage;
               try {
-                  processedTgcfMessage = await pluginService.applyPlugins(tgcfMessage);
+                processedTgcfMessage = await pluginService.applyPlugins(tgcfMessage);
               } catch (pluginError) {
-                  logger.error({ pluginError, ruleId, messageId: tgcfMessage.message_id }, "[Past Mode] Error applying plugins.");
-                  processedTgcfMessage = tgcfMessage; // Forward original on critical plugin system error
+                logger.error({ pluginError, ruleId, messageId: tgcfMessage.message_id }, "[Past Mode] Error applying plugins.");
+                processedTgcfMessage = tgcfMessage; // Forward original on critical plugin system error
               }
 
 
@@ -314,21 +315,21 @@ class ForwardingService {
                 currentOffset = rawMessage.id;
                 continue;
               }
-              
+
               logger.debug({ ruleId, messageId: processedTgcfMessage.message_id }, `[Past Mode] Processing message.`);
               for (const destination of forwardRule.destinations) {
                 try {
-                    let textToSend = processedTgcfMessage.text;
-                    if (globalConfig.show_forwarded_from) {
-                        const senderInfo = processedTgcfMessage.sender_id ? `user ${processedTgcfMessage.sender_id}` : `chat ${forwardRule.source}`;
-                        textToSend = `Forwarded from ${senderInfo} (Past):\n${processedTgcfMessage.text}`;
-                    }
-                    const messageToSendPayload = { ...processedTgcfMessage, text: textToSend };
-                    
-                    await telegramService.sendMessage(destination, messageToSendPayload, forwardRule.con_name);
-                    logger.info({ ruleId, messageId: processedTgcfMessage.message_id, destination }, `[Past Mode] Forwarded message.`);
+                  let textToSend = processedTgcfMessage.text;
+                  if (globalConfig.show_forwarded_from) {
+                    const senderInfo = processedTgcfMessage.sender_id ? `user ${processedTgcfMessage.sender_id}` : `chat ${forwardRule.source}`;
+                    textToSend = `Forwarded from ${senderInfo} (Past):\n${processedTgcfMessage.text}`;
+                  }
+                  const messageToSendPayload = { ...processedTgcfMessage, text: textToSend };
+
+                  await telegramService.sendMessage(destination, messageToSendPayload, forwardRule.con_name);
+                  logger.info({ ruleId, messageId: processedTgcfMessage.message_id, destination }, `[Past Mode] Forwarded message.`);
                 } catch (sendError) {
-                    logger.error({ sendError, ruleId, messageId: processedTgcfMessage.message_id, destination }, `[Past Mode] Error forwarding message.`);
+                  logger.error({ sendError, ruleId, messageId: processedTgcfMessage.message_id, destination }, `[Past Mode] Error forwarding message.`);
                 }
               }
               currentOffset = processedTgcfMessage.message_id;
@@ -369,30 +370,30 @@ class ForwardingService {
     let fileId = media.id?.toString(); // This is often not the 'file_id' needed for re-upload. It's more of an internal ID.
     let fileName = null;
     let caption = media.caption || null;
-    
+
     // Helper to extract file name from document attributes
     const getFileName = (doc) => doc.attributes?.find(attr => attr.className === 'DocumentAttributeFilename')?.fileName;
 
     if (media.photo) {
-        type = 'photo';
-        // For photos, gram.js provides different sizes. `media.photo` is usually the largest.
-        // `media.photo.id` is an internal ID. For re-uploading, you often need the raw `InputFile` or `InputMedia`.
-        // `raw_media` will store the original gram.js media object for `TelegramService.sendMessage`.
+      type = 'photo';
+      // For photos, gram.js provides different sizes. `media.photo` is usually the largest.
+      // `media.photo.id` is an internal ID. For re-uploading, you often need the raw `InputFile` or `InputMedia`.
+      // `raw_media` will store the original gram.js media object for `TelegramService.sendMessage`.
     } else if (media.document) {
-        type = 'document';
-        fileName = getFileName(media.document);
+      type = 'document';
+      fileName = getFileName(media.document);
     } else if (media.webpage && media.webpage.photo) {
-        type = 'photo'; // Webpage preview image
+      type = 'photo'; // Webpage preview image
     } else if (media.webpage && media.webpage.document) {
-        type = 'document';
-        fileName = getFileName(media.webpage.document);
+      type = 'document';
+      fileName = getFileName(media.webpage.document);
     }
     // Add more types: video, voice, sticker, etc.
     // e.g. if (media.video) { type = 'video'; fileName = getFileName(media.video); }
 
     return {
       id: fileId, // Internal ID, primarily for reference
-      path: null, 
+      path: null,
       newPath: null, // To be set by plugins if they want to upload a new file
       fileName: fileName, // Extracted filename, can be overridden by plugins
       type: type,
@@ -413,18 +414,18 @@ class ForwardingService {
           logger.warn('Conceptual download: Actual implementation needs gram.js specifics for media download.');
           return "/tmp/downloaded_file_placeholder"; // Placeholder
         } catch (err) {
-          logger.error({err, fileId}, "Error downloading file conceptually.");
+          logger.error({ err, fileId }, "Error downloading file conceptually.");
           return null;
         }
       },
-      // Conceptual update function - to set a new local file for upload
-      update: (newLocalPath, newFileName) => {
+      update(newLocalPath, newFileName) {
         this.newPath = newLocalPath;
         if (newFileName) this.fileName = newFileName;
-        logger.info({newLocalPath, newFileName}, "File path updated by plugin for re-upload.");
-      }
-    };
-  }
+        logger.info({ newLocalPath, newFileName }, "File path updated by plugin for re-upload.");
+      }  
+    }
+  };
 }
+
 
 module.exports = new ForwardingService();

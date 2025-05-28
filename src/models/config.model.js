@@ -3,8 +3,30 @@ const mongoose = require('mongoose');
 const forwardSchema = new mongoose.Schema({
   con_name: { type: String, required: true }, // Connection name (e.g., specific Telegram session name)
   use_this: { type: Boolean, default: true }, // Whether this forward rule is active
-  source: { type: mongoose.Schema.Types.Mixed, required: true }, // Chat ID or array of Chat IDs
-  destinations: [{ type: mongoose.Schema.Types.Mixed, required: true }], // Array of Chat IDs
+  source: {
+    type: mongoose.Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: function (v) {
+        // Validate that it's either a string/number (single chat ID) or array of strings/numbers
+        if (Array.isArray(v)) {
+          return v.every(id => typeof id === 'string' || typeof id === 'number');
+        }
+        return typeof v === 'string' || typeof v === 'number';
+      },
+      message: 'Source must be a chat ID (string/number) or array of chat IDs'
+    }
+  },
+  destinations: [{
+    type: mongoose.Schema.Types.Mixed,
+    required: true,
+    validate: {
+      validator: function (v) {
+        return typeof v === 'string' || typeof v === 'number';
+      },
+      message: 'Each destination must be a valid chat ID (string/number)'
+    }
+  }],
   offset: { type: String, default: null }, // Message ID offset for past mode
   end: { type: String, default: null }, // Message ID end for past mode
   // Note: 'owner' field from original design might be better handled at a higher level or via user-specific configs if needed later
@@ -48,13 +70,16 @@ const configSchema = new mongoose.Schema({
 // Ensure only one document can be created with the specific _id
 configSchema.pre('save', async function (next) {
   if (this.isNew && this._id !== 'global_config_doc') {
-    // Or if you want to enforce that no other doc ID can be used
-    // this._id = 'global_config_doc'; 
-    // However, the default in the schema should handle this for new documents.
+    return next(new Error('Only one global configuration document is allowed'));
   }
-  // If you want to prevent more than one document existing AT ALL,
-  // you might need a more complex check or rely on application logic.
-  // For now, relying on the default _id and application logic to only fetch/update this one.
+
+  // Prevent multiple documents by checking document count
+  if (this.isNew) {
+    const existingCount = await this.constructor.countDocuments({});
+    if (existingCount > 0) {
+      return next(new Error('Global configuration document already exists'));
+    }
+  }
   next();
 });
 

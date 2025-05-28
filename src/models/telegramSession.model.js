@@ -1,12 +1,11 @@
 const mongoose = require('mongoose');
 
 const telegramSessionSchema = new mongoose.Schema({
-  session_name: {
-    type: String,
-    required: true,
-    unique: true,
-    default: 'default',
-  },
+session_name: {
+   type: String,
+   required: true,
+   unique: true,
+ },
   api_id: {
     type: String,
     required: true,

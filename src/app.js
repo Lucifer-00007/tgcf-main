@@ -1,12 +1,21 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
+const cors = require('cors');
 const logger = require('./utils/logger');
 
 dotenv.config();
 
 const app = express();
 
-app.use(express.json());
+// Security middleware
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', (req, res) => {
   res.send('TGCF Backend');

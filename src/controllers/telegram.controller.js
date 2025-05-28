@@ -13,15 +13,15 @@ exports.connect = async (req, res, next) => {
     if (initialStatus.status === 'connected') {
       return res.status(200).json({ message: 'Already connected.', user_details: initialStatus.user_details });
     }
-    
+
     // Attempt to initialize with existing session if available and not already connected
     if (initialStatus.status === 'disconnected' && initialStatus.session_string_present) {
-        console.log(`Attempting to reconnect existing session: ${sessionName}`);
-        const client = await telegramService.initializeClient(apiId, apiHash, null, sessionName); // null session string will force DB load
-        if (client) {
-            return res.status(200).json({ message: 'Reconnected successfully using stored session.', user_details: client.user_details });
-        }
-        console.log(`Failed to reconnect session ${sessionName}, proceeding to full authentication.`);
+      console.log(`Attempting to reconnect existing session: ${sessionName}`);
+      const client = await telegramService.initializeClient(apiId, apiHash, null, sessionName); // null session string will force DB load
+      if (client) {
+        return res.status(200).json({ message: 'Reconnected successfully using stored session.', user_details: client.user_details });
+      }
+      console.log(`Failed to reconnect session ${sessionName}, proceeding to full authentication.`);
     }
 
 
@@ -31,9 +31,9 @@ exports.connect = async (req, res, next) => {
     console.error(`Connect error for session ${sessionName}:`, error);
     // Distinguish between different error types if possible
     if (error.message && error.message.includes('PHONE_NUMBER_INVALID')) {
-        return res.status(400).json({ message: 'Phone number invalid.' });
+      return res.status(400).json({ message: 'Phone number invalid.' });
     }
-    res.status(500).json({ message: 'Failed to start Telegram connection.', error: error.message });
+    res.status(500).json({ message: 'Failed to start Telegram connection.' });
   }
 };
 
@@ -48,8 +48,8 @@ exports.submitCode = async (req, res, next) => {
     res.status(200).json(result);
   } catch (error) {
     console.error(`Submit code error for session ${sessionName}:`, error);
-     if (error.message && error.message.includes('PHONE_CODE_INVALID')) {
-        return res.status(400).json({ message: 'Invalid phone code.' });
+    if (error.message && error.message.includes('PHONE_CODE_INVALID')) {
+      return res.status(400).json({ message: 'Invalid phone code.' });
     }
     res.status(500).json({ message: 'Failed to submit code.', error: error.message });
   }
@@ -65,11 +65,11 @@ exports.submitPassword = async (req, res, next) => {
     const result = await telegramService.submitPassword(password, sessionName);
     res.status(200).json(result);
   } catch (error) {
-    console.error(`Submit password error for session ${sessionName}:`, error);
+    console.error(`Submit password error for session ${sessionName}:`, error.message);
     if (error.message && error.message.includes('PASSWORD_HASH_INVALID')) { // Or similar error from gram.js
-        return res.status(400).json({ message: 'Invalid password.' });
+      return res.status(400).json({ message: 'Invalid password.' });
     }
-    res.status(500).json({ message: 'Failed to submit password.', error: error.message });
+    res.status(500).json({ message: 'Failed to submit password.' });
   }
 };
 

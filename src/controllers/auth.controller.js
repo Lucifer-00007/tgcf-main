@@ -5,18 +5,25 @@ const jwtConfig = require('../config/jwt.config');
 // Login function
 exports.login = async (req, res) => {
   try {
+    // Input validation
+    if (!req.body.emailOrUsername || !req.body.password) {
+      return res.status(400).json({ message: 'Email/username and password are required' });
+    }
+
     const { emailOrUsername, password } = req.body;
     const user = await User.findOne({
       $or: [{ email: emailOrUsername }, { username: emailOrUsername }],
     });
 
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email/username or password' });
     }
 
-    const token = jwt.sign({ id: user._id, username: user.username }, jwtConfig.secret, {
-      expiresIn: '1h', // Token expires in 1 hour
-    });
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      jwtConfig.secret,
+      { expiresIn: jwtConfig.expiresIn || '1h' }
+    );
 
     res.json({ token });
   } catch (error) {

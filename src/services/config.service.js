@@ -16,9 +16,10 @@ class ConfigService {
   }
 
   async updateConfig(newConfigData) {
+    const currentConfig = await this.getConfig();
     return Config.findOneAndUpdate(
       { _id: GLOBAL_CONFIG_ID },
-      { $set: newConfigData }, // Use $set to update only provided fields
+      { $set: newConfigData },
       { upsert: true, new: true, runValidators: true }
     );
   }

@@ -21,6 +21,7 @@ describe('ReplacePlugin', () => {
       };
       const result = replacePlugin.modify(message);
       expect(result.text).toBe('hi world, hi there');
+      expect(result.raw_text).toBe('hi world, hi there');
     });
 
     it('should handle case-insensitive simple replacement', () => {
@@ -84,14 +85,14 @@ describe('ReplacePlugin', () => {
       expect(result.text).toBe('hello world');
     });
 
-     it('should handle invalid regex pattern gracefully', () => {
+    it('should handle invalid regex pattern gracefully', () => {
       const pluginConfig = {
         rules: [{ pattern: '[', replacement: 'wontfix', is_regex: true }],
       };
       replacePlugin = new ReplacePlugin(pluginConfig, mockGlobalConfig);
       const message = { text: 'some text with [' };
       // Spy on console.error
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
       const result = replacePlugin.modify(message);
       expect(result.text).toBe('some text with ['); // Should not change text
       expect(consoleErrorSpy).toHaveBeenCalled();
